@@ -1,93 +1,93 @@
 # ZoteroCrop
 
-Zotero에서 PDF의 **모든 페이지에 공통으로 제거할 수 있는 여백**을 잘라내는 macOS용 플러그인입니다. 결과는 새 첨부파일로 추가하며 원본을 유지합니다.
+A macOS plugin for Zotero that removes **margins that can be safely cropped across every page** of a PDF. The result is added as a new attachment, preserving the original file.
 
-**현재 버전: 0.1.2 베타 · 대상: Zotero 9.0.x · Python 3.10 이상**
+**Current version: 0.1.2 beta · Target: Zotero 9.0.x · Requires Python 3.10 or later**
 
-[릴리스 및 XPI 다운로드](https://github.com/Yongwoo-Lee-ccl/zoterocrop/releases) · [문제 보고](https://github.com/Yongwoo-Lee-ccl/zoterocrop/issues)
+[Releases and XPI downloads](https://github.com/Yongwoo-Lee-ccl/zoterocrop/releases) · [Report an issue](https://github.com/Yongwoo-Lee-ccl/zoterocrop/issues)
 
-## 개발 및 책임에 관한 고지
+## Development and disclaimer
 
-**이 프로젝트는 전적으로 OpenAI Codex를 사용하여 개발되었습니다.**
+**This project was developed entirely using OpenAI Codex.**
 
-이 소프트웨어는 어떠한 명시적 또는 묵시적 보증 없이 **있는 그대로(AS IS)** 제공됩니다. 저장소 소유자 및 유지관리자는 사용 또는 사용 불능으로 인해 발생하는 오류, 데이터 손실·손상, 작업 중단 및 기타 문제나 손해에 대해 책임을 지지 않습니다. 사용자는 자신의 판단과 책임으로 사용해야 하며, 중요한 PDF와 Zotero 라이브러리는 먼저 백업하시기 바랍니다.
+This software is provided **AS IS**, without any express or implied warranties. The repository owner and maintainers accept no responsibility or liability for errors, data loss or corruption, interruptions, or any other problems or damages arising from the use of, or inability to use, this software. Use it at your own discretion and risk, and back up important PDFs and your Zotero library before use.
 
-자동 테스트 통과나 설치 호환성 확인이 모든 PDF·Zotero 환경에서의 정상 동작을 보장하지 않습니다.
+Passing automated tests or installation compatibility checks does not guarantee correct operation with every PDF or Zotero environment.
 
-## 기능
+## Features
 
-- PDF 첨부파일 우클릭 → 남길 여백 입력 → 잘린 PDF를 새 첨부파일로 추가
-- 각 페이지의 보이는 콘텐츠 영역을 측정하고 전체 합집합을 포함하는 **동일한 CropBox** 적용
-- 출력 페이지 크기 통일, 원래 텍스트 검색·벡터 콘텐츠 유지
-- `10pt`, `10`, `3mm`, `0.5cm`, `0.1in` 형식 지원
-- 원본 PDF와 원본에 연결된 Zotero 주석 유지
-- PDF 처리는 로컬에서 실행; 새 첨부파일의 동기화는 사용자의 Zotero 설정을 따름
+- Right-click a PDF attachment, specify the margin to retain, and add the cropped PDF as a new attachment
+- Measure visible content on each page and apply **one identical CropBox** enclosing the union of all content bounds
+- Keep output page sizes uniform while preserving searchable text and vector content
+- Accept margins such as `10pt`, `10`, `3mm`, `0.5cm`, and `0.1in`
+- Preserve the original PDF and the Zotero annotations associated with it
+- Process PDFs locally; new attachments follow your existing Zotero sync settings
 
-## 설치
+## Installation
 
-1. [저장소 ZIP](https://github.com/Yongwoo-Lee-ccl/zoterocrop/archive/refs/heads/main.zip)을 내려받아 계속 사용할 위치에 압축을 풉니다.
-2. Python 3.10 이상을 준비한 뒤, 터미널에서 해당 폴더로 이동해 실행합니다.
+1. Download the [repository ZIP](https://github.com/Yongwoo-Lee-ccl/zoterocrop/archive/refs/heads/main.zip) and extract it to a permanent location.
+2. Install Python 3.10 or later, open a terminal in the extracted folder, and run:
 
    ```sh
    zsh setup.command
    ```
 
-   PyMuPDF와 Pillow를 로컬 가상환경에 설치합니다. 처음에는 다운로드를 위해 네트워크가 필요합니다. 완료 후 표시되는 `.venv/bin/python`의 **전체 경로**를 복사합니다.
+   This installs PyMuPDF and Pillow in a local virtual environment. The initial download requires an internet connection. Copy the **full path** to `.venv/bin/python` printed when setup finishes.
 
-3. [Releases](https://github.com/Yongwoo-Lee-ccl/zoterocrop/releases)에서 최신 XPI를 다운로드합니다.
-4. Zotero의 **Tools → Plugins** 창에 XPI를 드래그해 설치합니다.
-5. **Tools → PDF Common Crop: Python Setup…**(한국어: **도구 → PDF Common Crop: Python 설정…**)에 복사한 경로를 입력합니다.
+3. Download the latest XPI from [Releases](https://github.com/Yongwoo-Lee-ccl/zoterocrop/releases).
+4. Drag the XPI into Zotero's **Tools → Plugins** window to install it.
+5. Open **Tools → PDF Common Crop: Python Setup…** and enter the Python path you copied.
 
-이미 PyMuPDF 1.26 이상과 Pillow가 설치된 Python 환경이 있다면 그 실행 경로를 사용해도 됩니다. Python 자체는 XPI에 포함되지 않습니다.
+You can also use an existing Python environment with PyMuPDF 1.26 or later and Pillow installed. Python itself is not bundled in the XPI.
 
-가상환경 설치 후 폴더를 이동하면 경로가 깨질 수 있습니다. 처음부터 최종 보관 위치에서 설치하세요.
+Moving the folder after creating the virtual environment may break its paths. Run setup in the location where you intend to keep it.
 
-## 사용
+## Usage
 
-1. 논문 항목을 펼쳐 **PDF 첨부파일 하나**를 선택합니다. 독립 PDF 항목도 지원합니다.
-2. 우클릭 → **Crop Common PDF Margins… / PDF 공통 여백 자르기…**
-3. 남길 여백을 입력합니다. 기본값은 `10pt`입니다.
-4. 결과는 `원본 제목 — cropped`라는 새 첨부파일로 추가됩니다.
+1. Expand a bibliographic item and select **one PDF attachment**. Standalone PDF items are also supported.
+2. Right-click and choose **Crop Common PDF Margins…**.
+3. Enter the margin to retain. The default is `10pt`.
+4. The result is added as a new attachment named `Original title — cropped`.
 
-논문 아래의 첨부파일은 같은 논문 아래에, 독립 PDF는 동일한 컬렉션에 추가됩니다. 한 번에 하나씩 처리합니다.
+Child attachments are added under the same parent item. Standalone PDFs are added to the same collections. Only one PDF is processed at a time.
 
-**기존 Zotero 하이라이트·메모는 새 PDF로 복사하지 않습니다.** 원본 첨부파일에 그대로 남습니다. PDF 파일 안에 이미 포함된 보이는 주석은 측정 대상입니다.
+**Existing Zotero highlights and notes are not copied to the new PDF.** They remain associated with the original attachment. Visible annotations already embedded in the PDF file are included in content detection.
 
-## 동작과 제한
+## How it works and limitations
 
-페이지별 콘텐츠 bounding box의 합집합을 구하고 지정 여백을 더합니다. 이를 모든 원본 CropBox의 교집합 안으로 제한하여 모든 페이지에 같은 사각형을 적용합니다. 콘텐츠를 자르지 않고 적용할 수 없는 혼합 크기 PDF는 오류로 중단합니다.
+The engine computes the union of all page content bounding boxes and expands it by the requested margin. It then constrains this rectangle to the intersection of the original CropBoxes and applies the same rectangle to every page. If a PDF with mixed page sizes cannot be cropped this way without cutting content, processing stops with an error.
 
-- 측정은 기본 144dpi 픽셀 기반 근사입니다. 순수 흰색을 배경으로 보고 1픽셀(0.5pt) 보호 여백을 추가합니다.
-- 유색 배경이나 스캔 노이즈도 콘텐츠로 감지될 수 있습니다. 매우 작거나 희미한 콘텐츠 검출은 완전히 보장하지 않습니다.
-- 요청 여백이 원본 경계를 넘으면 가능한 범위로 제한합니다. 새 종이 영역을 추가하지 않습니다.
-- CropBox 변경은 숨겨진 PDF 데이터를 삭제하는 작업이 아닙니다.
-- 로컬에 다운로드된 PDF와 파일 추가 권한이 필요합니다.
-- 플러그인 UI는 암호 입력을 지원하지 않습니다. 암호화된 PDF는 별도 CLI의 `--password-env`를 이용하세요.
-- 비표준 PDF UserUnit은 지원하지 않습니다. 전자서명된 PDF는 수정 시 서명이 무효화될 수 있습니다.
-- 처리 시간은 최대 10분이며, 플러그인 비활성화 시 실행 중인 Python 작업을 중단합니다.
+- Measurement is a pixel-based approximation at 144 dpi by default. Only pure white is treated as background, and a one-pixel (0.5 pt) protective margin is added.
+- Colored backgrounds and scan noise may be detected as content. Detection of extremely small or faint content is not guaranteed.
+- Requested margins are clamped to the available original page area. The plugin does not add new page area.
+- Changing a CropBox does not delete hidden PDF data.
+- The PDF must be downloaded locally, and you must have permission to add files to the library.
+- The plugin UI does not accept passwords. For encrypted PDFs, use the standalone CLI's `--password-env` option.
+- Nonstandard PDF UserUnit values are unsupported. Modifying a digitally signed PDF may invalidate its signature.
+- Processing is limited to 10 minutes. Disabling the plugin stops any running Python job.
 
-## 검증 상태
+## Validation status
 
-- Python 엔진 자동 테스트 16개 통과
-- Zotero API를 모의 구현한 연결 테스트 12개 통과; Python 프로세스는 실제 실행
-- 31페이지 PDF 테스트에서 동일 출력 크기, 전체 텍스트 보존, 원본 파일 무변경 확인
-- 위 PDF의 31페이지 모두 원본의 crop 영역과 결과 렌더링 픽셀 일치 확인(144dpi)
-- 0.1.1 패키지는 실제 Zotero 9.0.6 설치 사전검사 통과
-- **실제 설치 후 메뉴 실행·첨부파일 등록·재시작·자동 업데이트의 전체 통합 테스트는 아직 완료되지 않았습니다.**
+- All 16 Python engine tests passed
+- All 12 bridge tests passed using mocked Zotero APIs and real Python processes
+- A 31-page PDF test confirmed uniform output dimensions, preserved extracted text, and an unchanged original file
+- All 31 output pages matched the corresponding original crop regions pixel for pixel at 144 dpi
+- Package 0.1.1 passed the installation preflight check in a running Zotero 9.0.6 instance
+- **Full integration testing of installation, menu actions, attachment import, restarts, and automatic updates in Zotero has not yet been completed.**
 
-테스트에 사용한 사용자 PDF나 라이브러리 데이터는 저장소에 포함하지 않습니다.
+User PDFs and library data used during testing are not included in this repository.
 
-## 오류 해결
+## Troubleshooting
 
-- **설치 거부:** 최신 XPI인지, Zotero 9.0.x인지 확인하세요. 0.1.0의 필수 업데이트 주소 누락은 0.1.1에서 수정했습니다.
-- **Python 확인 실패:** 지정한 Python에서 `-m pip install -r requirements.txt`를 실행하고 전체 경로를 다시 입력하세요.
-- **메뉴 없음:** 논문 자체가 아닌 PDF 첨부파일 한 개를 선택했는지 확인하세요.
-- **파일 없음:** Zotero에서 원본 PDF를 먼저 열어 다운로드하세요.
-- **공통 crop 불가능:** 페이지 크기·좌표계를 먼저 정리해야 합니다.
+- **Installation rejected:** Check that you have the latest XPI and are running Zotero 9.0.x. Version 0.1.1 fixed the missing required update URL in 0.1.0.
+- **Python environment check failed:** Run your chosen Python executable with `-m pip install -r requirements.txt`, then enter its full path again.
+- **Menu missing:** Select exactly one PDF attachment, rather than its parent bibliographic item.
+- **File missing:** Open the original PDF in Zotero first to download it.
+- **Common crop not possible:** Normalize the page sizes and coordinate systems before retrying.
 
-문제 보고에는 Zotero/macOS/플러그인 버전과 오류 메시지를 포함해 주세요. 민감한 원문 PDF나 라이브러리 데이터는 공개 이슈에 첨부하지 마세요.
+When reporting an issue, include your Zotero, macOS, and plugin versions, along with the error message. Do not attach sensitive PDFs or library data to public issues.
 
-## 개발 및 릴리스
+## Development and releases
 
 ```sh
 python3 -m venv .venv
@@ -101,14 +101,16 @@ CROP_TEST_PAGES=3 node --test tests/test_plugin.cjs
 python build.py
 ```
 
-Node.js 22 이상을 테스트에 사용합니다. 플러그인 사용 자체에는 Node.js가 필요하지 않습니다. 환경변수 없이 JS 테스트를 실행하면 실제 Python 실행을 포함하는 4개 테스트는 건너뜁니다.
+Tests use Node.js 22 or later. Node.js is not required to use the plugin. Running the JavaScript tests without the environment variables skips the four tests that launch real Python processes.
 
-`build.py`는 `dist/zoterocrop-VERSION.xpi`와 SHA-256 해시를 포함한 `updates.json`을 생성합니다. 릴리스할 때는 manifest의 버전을 올리고 빌드한 뒤, **빌드된 바로 그 XPI**를 `vVERSION` GitHub Release에 업로드합니다. `updates.json`과 manifest도 함께 커밋해야 합니다. 테스트 문서·PDF·가상환경은 배포하지 않습니다.
+`build.py` creates `dist/zoterocrop-VERSION.xpi` and an `updates.json` file containing its SHA-256 hash. To release a new version, bump the manifest version, build, and upload **that exact XPI** to the `vVERSION` GitHub Release. Commit the manifest and `updates.json` together. Do not distribute test documents, PDFs, or virtual environments.
 
-업데이트 주소는 `https://raw.githubusercontent.com/Yongwoo-Lee-ccl/zoterocrop/main/updates.json`입니다. 플러그인 ID는 기존 설치와의 연결을 유지하기 위해 `pdf-common-crop@local.invalid`를 계속 사용합니다. ID는 이메일 연락처나 서버 주소가 아닙니다.
+The update URL is `https://raw.githubusercontent.com/Yongwoo-Lee-ccl/zoterocrop/main/updates.json`. The plugin retains the ID `pdf-common-crop@local.invalid` for continuity with existing installations. This ID is not an email contact or a server address.
 
-0.1.0/0.1.1 개인 개발판은 정상 업데이트 주소가 없으므로 0.1.2 XPI를 수동으로 한 번 설치해야 합니다. 이후 버전은 이 저장소의 업데이트 정보를 사용합니다. GitHub의 prerelease 표시는 Zotero 업데이트를 차단하지 않습니다. `updates.json`에 기재한 버전은 기존 사용자에게 업데이트 후보가 됩니다.
+Private development versions 0.1.0 and 0.1.1 do not have a working update URL, so their users must manually install the 0.1.2 XPI once. Subsequent versions use this repository's update information. Marking a GitHub release as a prerelease does not prevent Zotero updates: any version listed in `updates.json` becomes an update candidate for existing users.
 
-## 의존성 라이선스
+See [the 0.1.2 release notes](docs/releases/v0.1.2.md) for the current beta's scope and limitations.
 
-PyMuPDF/MuPDF는 AGPL 또는 상용 라이선스로 제공됩니다. [PyMuPDF 공식 라이선스 안내](https://pymupdf.readthedocs.io/en/latest/about.html)를 확인하세요. Pillow는 별도 라이선스가 적용됩니다. 위 책임 고지는 의존성의 라이선스 조건을 대체하지 않습니다. 이 저장소에는 Python 인터프리터나 의존성 바이너리를 포함하지 않습니다.
+## Dependency licenses
+
+PyMuPDF/MuPDF is available under the AGPL or a commercial license. See the [official PyMuPDF licensing information](https://pymupdf.readthedocs.io/en/latest/about.html). Pillow has its own license. The disclaimer above does not replace the license terms of these dependencies. This repository does not bundle the Python interpreter or dependency binaries.
