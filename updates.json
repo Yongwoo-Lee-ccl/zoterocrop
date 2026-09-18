@@ -1,0 +1,19 @@
+{
+  "addons": {
+    "pdf-common-crop@local.invalid": {
+      "updates": [
+        {
+          "version": "0.1.2",
+          "update_link": "https://github.com/Yongwoo-Lee-ccl/zoterocrop/releases/download/v0.1.2/zoterocrop-0.1.2.xpi",
+          "update_hash": "sha256:25b926a416979b2d1b81eed191d8df2226cae6ccbb6368374f5ec91259e99048",
+          "applications": {
+            "zotero": {
+              "strict_min_version": "9.0",
+              "strict_max_version": "9.0.*"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
