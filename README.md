@@ -1,5 +1,7 @@
 # ZoteroCrop
 
+For Zotero mobile lovers! Auto-crop PDF margins and read comfortably.
+
 A macOS plugin for Zotero that removes **margins that can be safely cropped across every page** of a PDF. The result is added as a new attachment, preserving the original file.
 
 **Current version: 0.1.2 beta · Target: Zotero 9.0.x · Requires Python 3.10 or later**
