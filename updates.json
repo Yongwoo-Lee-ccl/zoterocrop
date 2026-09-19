@@ -3,13 +3,13 @@
     "pdf-common-crop@local.invalid": {
       "updates": [
         {
-          "version": "0.1.2",
-          "update_link": "https://github.com/Yongwoo-Lee-ccl/zoterocrop/releases/download/v0.1.2/zoterocrop-0.1.2.xpi",
-          "update_hash": "sha256:25b926a416979b2d1b81eed191d8df2226cae6ccbb6368374f5ec91259e99048",
+          "version": "0.2.0",
+          "update_link": "https://github.com/Yongwoo-Lee-ccl/zoterocrop/releases/download/v0.2.0/crop-margins-0.2.0.xpi",
+          "update_hash": "sha256:3b637e4a6e21c4d184d286e91aba7dcbbf2b8e7a7df129ed3346a41d00bb1815",
           "applications": {
             "zotero": {
               "strict_min_version": "9.0",
-              "strict_max_version": "9.0.*"
+              "strict_max_version": "10.0.*"
             }
           }
         }

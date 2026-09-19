@@ -17,10 +17,14 @@ async function sandbox() {
   const menus = [];
   const removed = [];
   const errors = [];
+  const annotations = [];
+  const copies = [];
+  const trashed = [];
   const item = {
     id:1, libraryID:1, parentID:10, deleted:false, attachmentContentType:'application/pdf',
     isAttachment:()=>true, getFilePathAsync:async()=>input,
-    getField:()=> '테스트 PDF', getCollections:()=>[15]
+    getField:()=> '테스트 PDF', getCollections:()=>[15],
+    getAnnotations:()=>annotations,getTags:()=>[{tag:'source tag'}],getNote:()=>'<p>Attachment note</p>'
   };
   function pipe(readable) {
     readable.setEncoding('utf8');
@@ -41,6 +45,7 @@ async function sandbox() {
     PathUtils:{tempDir:temp,join:path.join},
     IOUtils:{
       exists:async p=>{try{await fs.access(p);return true;}catch{return false;}},
+      stat:async p=>{const st=await fs.stat(p);return {size:st.size,lastModified:st.mtimeMs};},
       makeDirectory:(p,options)=>fs.mkdir(p,{mode:options.permissions}),
       writeUTF8:(p,s)=>fs.writeFile(p,s),
       remove:(p,options)=>fs.rm(p,{recursive:options.recursive,force:options.ignoreAbsent})
@@ -48,12 +53,20 @@ async function sandbox() {
     Zotero:{
       Prefs:{get:k=>prefs.get(k),set:(k,v)=>prefs.set(k,v)},
       Libraries:{get:()=>({editable:true,filesEditable:true})},
+      DB:{executeTransaction:async fn=>{
+        const copyCount=copies.length,trashCount=trashed.length;
+        try{return await fn();}catch(error){copies.length=copyCount;trashed.length=trashCount;throw error;}
+      }},
+      Items:{trash:async id=>trashed.push(id),trashTx:async id=>trashed.push(id)},
+      Annotations:{toJSONSync:a=>({authorName:a.annotationAuthorName})},
+      PreferencePanes:{register:async()=> 'pdf-common-crop-preferences'},
       File:{getResourceAsync:async()=>fs.readFile(path.resolve(__dirname,'../plugin/engine/pdf_common_crop.py'),'utf8')},
       Attachments:{importFromFile:async options=>{
         const copied=path.join(temp,`imported-${imported.length}.pdf`);
         await fs.copyFile(options.file,copied);
         imported.push({...options,copied});
-        return {id:100+imported.length,parentID:options.parentItemID,getField:()=>options.title};
+        return {id:100+imported.length,parentID:options.parentItemID,getField:()=>options.title,
+          setTags(tags){this.tags=tags;},setNote(note){this.note=note;},save:async()=>{}};
       }},
       MenuManager:{registerMenu:m=>{menus.push(m);return m.menuID;},unregisterMenu:id=>removed.push(id)},
       getMainWindows:()=>[],getMainWindow:()=>null,logError:e=>errors.push(e)
@@ -63,7 +76,14 @@ async function sandbox() {
   const plugin = context.CommonCrop;
   plugin.rootURI='file:///mock/plugin/';
   prefs.set(plugin.pref+'python',python);
-  return {temp,plugin,context,prefs,item,imported,menus,removed,errors,cleanup:()=>fs.rm(temp,{recursive:true,force:true})};
+  return {temp,plugin,context,prefs,item,imported,menus,removed,errors,annotations,copies,trashed,
+    addAnnotation(type='highlight') {
+      const annotation={annotationType:type,annotationPosition:JSON.stringify({pageIndex:0,rects:[[30,420,120,445]]}),
+        annotationIsExternal:false,annotationAuthorName:'Original author',
+        toJSON(){return {type:this.annotationType,position:this.annotationPosition};},
+        clone(){const copy={...this,save:async()=>copies.push(copy)};return copy;}};
+      annotations.push(annotation);return annotation;
+    },cleanup:()=>fs.rm(temp,{recursive:true,force:true})};
 }
 
 async function withSandbox(fn) {const s=await sandbox();try{await fn(s);}finally{await s.cleanup();}}
@@ -134,4 +154,74 @@ test('import failure cleans temporary files and releases busy flag', {skip:!pyth
   s.context.Zotero.Attachments.importFromFile=async()=>{throw new Error('import rejected');};
   await assert.rejects(s.plugin.cropAttachment(s.item,'10'),/import rejected/);
   assert.equal(s.plugin.busy,false);assert.deepEqual(await fs.readdir(s.temp),[]);
+}));
+
+test('both annotation preservation and original removal default off',()=>withSandbox(async s=>{
+  assert.equal(s.plugin.options().preserveAnnotations,false);
+  assert.equal(s.plugin.options().removeOriginal,false);
+  assert.equal(s.plugin.options().cropArxivStamp,true);
+}));
+test('arXiv preference can be independently disabled', {skip:!python||!input},()=>withSandbox(async s=>{
+  s.prefs.set(s.plugin.pref+'cropArxivStamp',false);
+  const execute=s.plugin.execute.bind(s.plugin);
+  s.plugin.execute=async(command,args)=>{
+    assert.ok(args.includes('--keep-arxiv-stamp'));
+    return execute(command,args);
+  };
+  await s.plugin.cropAttachment(s.item,'10pt');
+  assert.equal(s.plugin.options().preserveAnnotations,false);
+  assert.equal(s.plugin.options().removeOriginal,false);
+}));
+for(const preserveAnnotations of [false,true]) for(const removeOriginal of [false,true]) {
+  test(`independent options: preserve=${preserveAnnotations}, remove=${removeOriginal}`, {skip:!python||!input},()=>withSandbox(async s=>{
+    const original=s.addAnnotation();
+    s.prefs.set(s.plugin.pref+'preserveAnnotations',preserveAnnotations);
+    s.prefs.set(s.plugin.pref+'removeOriginal',removeOriginal);
+    const result=await s.plugin.cropAttachment(s.item,'10pt');
+    assert.equal(result.report.preserves_coordinates,true);
+    assert.equal(result.copiedAnnotations,preserveAnnotations?1:0);
+    assert.equal(s.copies.length,preserveAnnotations?1:0);
+    assert.deepEqual(s.trashed,removeOriginal?[s.item.id]:[]);
+    assert.equal(result.attachment.note,preserveAnnotations?s.item.getNote():undefined);
+    assert.deepEqual(result.attachment.tags,s.item.getTags());
+    if(preserveAnnotations) {
+      assert.equal(s.copies[0].parentID,result.attachment.id);
+      assert.equal(s.copies[0].annotationPosition,original.annotationPosition);
+      assert.equal(s.copies[0].annotationAuthorName,original.annotationAuthorName);
+    }
+  }));
+}
+test('annotation copy failure rolls back copies and retains original', {skip:!python||!input},()=>withSandbox(async s=>{
+  s.addAnnotation();
+  const second=s.addAnnotation('note');
+  second.clone=()=>({save:async()=>{throw new Error('copy failed');}});
+  await assert.rejects(s.plugin.cropAttachment(s.item,'10pt',{preserveAnnotations:true,removeOriginal:true}),/copy failed/);
+  assert.deepEqual(s.copies,[]);
+  assert.deepEqual(s.trashed,[101]);
+  assert.equal(s.plugin.busy,false);
+}));
+test('original trash failure rolls back copies and retains original', {skip:!python||!input},()=>withSandbox(async s=>{
+  s.addAnnotation();
+  s.context.Zotero.Items.trash=async()=>{throw new Error('trash failed');};
+  await assert.rejects(s.plugin.cropAttachment(s.item,'10pt',{preserveAnnotations:true,removeOriginal:true}),/trash failed/);
+  assert.deepEqual(s.copies,[]);assert.deepEqual(s.trashed,[101]);
+}));
+test('annotations changed during processing prevent import and removal', {skip:!python||!input},()=>withSandbox(async s=>{
+  const annotation=s.addAnnotation();
+  const execute=s.plugin.execute.bind(s.plugin);
+  s.plugin.execute=async(...args)=>{const run=await execute(...args);annotation.annotationPosition='{}';return run;};
+  await assert.rejects(s.plugin.cropAttachment(s.item,'10pt',{preserveAnnotations:true,removeOriginal:true}),/변경/);
+  assert.deepEqual(s.imported,[]);assert.deepEqual(s.trashed,[]);
+}));
+test('malformed annotation geometry prevents import and removal', {skip:!python||!input},()=>withSandbox(async s=>{
+  s.addAnnotation().annotationPosition=JSON.stringify({pageIndex:0,unknown:[1,2]});
+  await assert.rejects(s.plugin.cropAttachment(s.item,'10pt',{preserveAnnotations:true,removeOriginal:true}),/PDF 처리 실패/);
+  assert.deepEqual(s.imported,[]);assert.deepEqual(s.trashed,[]);
+}));
+test('Zotero 10 menu contexts never read removed collectionTreeRow getter',()=>withSandbox(async s=>{
+  await s.plugin.start({rootURI:'file:///plugin/'});
+  const context={items:[s.item],collectionTreeRows:[{},{}],setVisible(v){this.visible=v;},setEnabled(v){this.enabled=v;}};
+  Object.defineProperty(context,'collectionTreeRow',{get(){throw new Error('removed API');}});
+  s.menus[0].menus[0].onShowing(null,context);
+  assert.equal(context.visible,true);assert.equal(context.enabled,true);
 }));

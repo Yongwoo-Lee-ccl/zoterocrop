@@ -1,0 +1,29 @@
+<linkset>
+  <html:link rel="localization" href="pdf-common-crop.ftl"/>
+</linkset>
+<groupbox>
+  <label><html:h2 data-l10n-id="pdf-common-crop-behavior-heading"/></label>
+  <checkbox id="pdf-common-crop-preserve-annotations"
+    preference="extensions.pdf-common-crop.preserveAnnotations"
+    data-l10n-id="pdf-common-crop-preserve-annotations"/>
+  <description data-l10n-id="pdf-common-crop-preserve-description"/>
+  <checkbox id="pdf-common-crop-remove-original"
+    preference="extensions.pdf-common-crop.removeOriginal"
+    data-l10n-id="pdf-common-crop-remove-original"/>
+  <description data-l10n-id="pdf-common-crop-remove-description"/>
+  <description data-l10n-id="pdf-common-crop-independent-description"/>
+  <checkbox id="pdf-common-crop-arxiv-stamp"
+    preference="extensions.pdf-common-crop.cropArxivStamp"
+    data-l10n-id="pdf-common-crop-arxiv-stamp"/>
+  <description data-l10n-id="pdf-common-crop-arxiv-description"/>
+</groupbox>
+<groupbox>
+  <label><html:h2 data-l10n-id="pdf-common-crop-python-heading"/></label>
+  <description data-l10n-id="pdf-common-crop-python-description"/>
+  <html:input id="pdf-common-crop-python" type="text" style="width: 100%;"
+    preference="extensions.pdf-common-crop.python" aria-label="Python executable path"/>
+  <hbox>
+    <button data-l10n-id="pdf-common-crop-python-setup"
+      oncommand="Zotero.PDFCommonCrop.configure(window).catch(error =&gt; Zotero.PDFCommonCrop.alert(window, error.message));"/>
+  </hbox>
+</groupbox>

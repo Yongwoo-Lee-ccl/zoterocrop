@@ -20,7 +20,7 @@ def build():
     if settings['update_url'] != UPDATE_URL:
         raise ValueError('Update URL must point to this repository')
     version = manifest['version']
-    name = f'zoterocrop-{version}.xpi'
+    name = f'crop-margins-{version}.xpi'
     (ROOT / 'dist').mkdir(exist_ok=True)
     target = ROOT / 'dist' / name
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as archive:

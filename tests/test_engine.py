@@ -153,5 +153,147 @@ class CropTests(unittest.TestCase):
         b=self.run_cli('--margin','25.4mm','--dry-run')
         self.assertEqual(a['crop_box_pt'],b['crop_box_pt'])
 
+    def positions_file(self, positions):
+        path = self.root/'annotations.json'
+        path.write_text(json.dumps(positions))
+        return str(path)
+
+    def test_preserved_coordinates_and_embedded_highlights_all_rotations(self):
+        for rotation in (0,90,180,270):
+            with self.subTest(rotation=rotation):
+                with fitz.open() as doc:
+                    p=doc.new_page(width=400,height=500)
+                    p.insert_text((90,110),'Annotation coordinate test')
+                    p.add_highlight_annot(p.search_for('Annotation')[0]).update()
+                    p.set_cropbox(fitz.Rect(20,30,380,470))
+                    p.set_rotation(rotation)
+                    doc.save(self.src)
+                with fitz.open(self.src) as original:
+                    contents=original[0].read_contents()
+                    media=original[0].mediabox
+                self.run_cli('--preserve-coordinates','--force')
+                with fitz.open(self.out) as output:
+                    self.assertEqual(output[0].rotation,rotation)
+                    self.assertEqual(output[0].mediabox,media)
+                    self.assertEqual(output[0].read_contents(),contents)
+                    # Compare raw PDF QuadPoints: these must not move with CropBox.
+                    with fitz.open(self.src) as original:
+                        original_page, output_page = original[0], output[0]
+                        self.assertEqual(original.xref_get_key(original_page.first_annot.xref,'QuadPoints'),
+                                         output.xref_get_key(output_page.first_annot.xref,'QuadPoints'))
+                    self.assertIn('Annotation coordinate test', output[0].get_text())
+
+    def test_preserved_mixed_rotations_have_uniform_display_size(self):
+        with fitz.open() as doc:
+            for rotation in (0,90,180,270):
+                p=doc.new_page(width=400,height=500)
+                p.draw_rect(fitz.Rect(170,200,220,260),fill=(0,0,0))
+                p.set_rotation(rotation)
+            doc.save(self.src)
+        report=self.run_cli('--preserve-coordinates','--margin','3mm')
+        with fitz.open(self.out) as doc:
+            for page,rotation in zip(doc,(0,90,180,270)):
+                self.assertEqual(page.rotation,rotation)
+                for a,b in zip((page.rect.width,page.rect.height),report['output_size_pt']):
+                    self.assertAlmostEqual(a,b,places=3)
+
+    def test_annotation_bounds_protect_marginal_notes_ink_and_next_page(self):
+        self.fixture(boxes=((100,150,250,350),(100,150,250,350)))
+        positions=[{'pageIndex':0,'rects':[[20,440,42,462]]},
+                   {'pageIndex':0,'paths':[[340,40,355,60]],'width':8},
+                   {'pageIndex':0,'rects':[[100,200,200,220]],'nextPageRects':[[15,200,100,220]]}]
+        r=self.run_cli('--preserve-coordinates','--annotations-json',self.positions_file(positions))
+        self.assertLess(r['crop_box_pt'][0],15)
+        self.assertLess(r['crop_box_pt'][1],38)
+        self.assertGreater(r['crop_box_pt'][2],359)
+        self.assertGreater(r['crop_box_pt'][3],464)
+
+    def test_annotation_mapping_with_crop_offset_and_rotation(self):
+        for rotation in (0,90,180,270):
+            with self.subTest(rotation=rotation):
+                self.fixture(rotation=rotation,offset=True)
+                pos={'pageIndex':0,'rects':[[25,450,45,475]]}
+                r=self.run_cli('--preserve-coordinates','--annotations-json',self.positions_file([pos]),'--force')
+                with fitz.open(self.out) as output:
+                    page=output[0]
+                    page.set_rotation(0)
+                    visible=fitz.Rect(pos['rects'][0])*page.transformation_matrix
+                    self.assertTrue(page.rect.contains(visible), (rotation,visible,page.rect))
+
+    def test_rotated_text_annotation_bounds(self):
+        self.fixture(boxes=((100,150,250,350),(100,150,250,350)))
+        position={'pageIndex':0,'rects':[[40,380,140,400]],'rotation':90}
+        r=self.run_cli('--preserve-coordinates','--annotations-json',self.positions_file([position]))
+        self.assertLess(r['crop_box_pt'][0],80)
+        self.assertLess(r['crop_box_pt'][1],60)
+
+    def test_invalid_annotation_geometry_never_writes_output(self):
+        self.fixture()
+        cases=[{}, {'pageIndex':10,'rects':[[1,2,3,4]]},
+               {'pageIndex':0,'rects':[[float('nan'),2,3,4]]},
+               {'pageIndex':0,'paths':[[1,2,3]],'width':2},
+               {'pageIndex':1,'rects':[[1,2,3,4]],'nextPageRects':[[1,2,3,4]]}]
+        for position in cases:
+            self.run_cli('--preserve-coordinates','--annotations-json',self.positions_file([position]),ok=False)
+            self.assertFalse(self.out.exists())
+
+    def test_annotations_require_preserved_coordinates(self):
+        self.fixture()
+        self.assertIn('requires',self.run_cli('--annotations-json',self.positions_file([]),ok=False).stderr)
+
+    def arxiv_fixture(self, text='arXiv:2401.12345v2  [cs.CR]  2 Jan 2024', stamp_page=0, rotate=90, x=25, overlap=False):
+        with fitz.open() as doc:
+            for index in range(2):
+                p=doc.new_page(width=400,height=500)
+                p.draw_rect(fitz.Rect(80,80,320,400),fill=(0,0,0),color=None)
+                if index == stamp_page:
+                    p.insert_text((x,450),text,fontsize=12,rotate=rotate)
+                    if overlap:
+                        p.draw_line((15,20),(15,480),width=1)
+            doc.save(self.src)
+
+    def test_arxiv_stamp_cropped_and_original_streams_preserved(self):
+        self.arxiv_fixture()
+        before=self.src.read_bytes()
+        r=self.run_cli('--preserve-coordinates','--margin','10pt')
+        self.assertEqual(len(r['ignored_arxiv_stamps']),1)
+        self.assertTrue(r['ignored_arxiv_stamps'][0]['hidden_by_crop'])
+        self.assertGreater(r['crop_box_pt'][0],60)
+        self.assertEqual(self.src.read_bytes(),before)
+        with fitz.open(self.src) as original, fitz.open(self.out) as output:
+            self.assertEqual(original[0].read_contents(),output[0].read_contents())
+            self.assertNotIn('arXiv:',output[0].get_text())
+
+    def test_arxiv_toggle_off_keeps_stamp(self):
+        self.arxiv_fixture()
+        r=self.run_cli('--preserve-coordinates','--keep-arxiv-stamp')
+        self.assertEqual(r['ignored_arxiv_stamps'],[])
+        self.assertLess(r['crop_box_pt'][0],25)
+        with fitz.open(self.out) as doc:
+            self.assertIn('arXiv:',doc[0].get_text())
+
+    def test_arxiv_old_identifiers_and_large_margins(self):
+        self.arxiv_fixture(text='arXiv:hep-th/9901001v1  1 Jan 1999')
+        r=self.run_cli('--preserve-coordinates','--margin','200pt')
+        self.assertEqual(len(r['ignored_arxiv_stamps']),1)
+        self.assertTrue(r['ignored_arxiv_stamps'][0]['hidden_by_crop'])
+        self.assertLess(r['crop_box_pt'][0],80)
+
+    def test_arxiv_exception_does_not_hide_preserved_annotations(self):
+        self.arxiv_fixture()
+        pos=[{'pageIndex':0,'rects':[[10,200,32,222]]}]
+        r=self.run_cli('--preserve-coordinates','--annotations-json',self.positions_file(pos))
+        self.assertFalse(r['ignored_arxiv_stamps'][0]['hidden_by_crop'])
+        self.assertLess(r['crop_box_pt'][0],10)
+        self.assertTrue(any('cannot be fully cropped' in w for w in r['warnings']))
+
+    def test_arxiv_exception_requires_first_page_vertical_margin_text(self):
+        for kwargs in [{'stamp_page':1},{'rotate':0}, {'x':150},
+                       {'text':'arXiv:2401.12345v2 explains our method'}, {'overlap':True}]:
+            with self.subTest(kwargs=kwargs):
+                self.arxiv_fixture(**kwargs)
+                r=self.run_cli('--preserve-coordinates','--force')
+                self.assertEqual(r['ignored_arxiv_stamps'],[])
+
 if __name__=='__main__':
     unittest.main(verbosity=2)

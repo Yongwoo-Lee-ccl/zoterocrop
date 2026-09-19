@@ -1,10 +1,10 @@
-# ZoteroCrop
+# Crop Margins
 
 For Zotero mobile lovers! Auto-crop PDF margins and read comfortably.
 
-A macOS plugin for Zotero that removes **margins that can be safely cropped across every page** of a PDF. The result is added as a new attachment, preserving the original file.
+A macOS plugin for Zotero that removes **margins that can be safely cropped across every page** of a PDF. The result is added as a new attachment. Optional settings copy existing annotations and move the original attachment to Zotero Trash after success.
 
-**Current version: 0.1.2 beta · Target: Zotero 9.0.x · Requires Python 3.10 or later**
+**Current version: 0.2.0 beta · Target: Zotero 9.0.x–10.0.x · Requires Python 3.10 or later**
 
 [Releases and XPI downloads](https://github.com/Yongwoo-Lee-ccl/zoterocrop/releases) · [Report an issue](https://github.com/Yongwoo-Lee-ccl/zoterocrop/issues)
 
@@ -19,10 +19,12 @@ Passing automated tests or installation compatibility checks does not guarantee 
 ## Features
 
 - Right-click a PDF attachment, specify the margin to retain, and add the cropped PDF as a new attachment
-- Measure visible content on each page and apply **one identical CropBox** enclosing the union of all content bounds
+- Measure visible content on every page and apply one common crop in displayed page coordinates
 - Keep output page sizes uniform while preserving searchable text and vector content
 - Accept margins such as `10pt`, `10`, `3mm`, `0.5cm`, and `0.1in`
-- Preserve the original PDF and the Zotero annotations associated with it
+- Preserve original PDF coordinates, page rotation, embedded annotations, searchable text, and vector content
+- Independently enable **Preserve existing annotations** and **Remove the original PDF after success**; both default to **off**
+- **Crop the vertical arXiv identifier** is a separate setting, enabled by default
 - Process PDFs locally; new attachments follow your existing Zotero sync settings
 
 ## Installation
@@ -38,7 +40,7 @@ Passing automated tests or installation compatibility checks does not guarantee 
 
 3. Download the latest XPI from [Releases](https://github.com/Yongwoo-Lee-ccl/zoterocrop/releases).
 4. Drag the XPI into Zotero's **Tools → Plugins** window to install it.
-5. Open **Tools → PDF Common Crop: Python Setup…** and enter the Python path you copied.
+5. Open **Tools → Crop Margins: Settings… → Configure and verify Python…** and enter the Python path you copied.
 
 You can also use an existing Python environment with PyMuPDF 1.26 or later and Pillow installed. Python itself is not bundled in the XPI.
 
@@ -47,17 +49,36 @@ Moving the folder after creating the virtual environment may break its paths. Ru
 ## Usage
 
 1. Expand a bibliographic item and select **one PDF attachment**. Standalone PDF items are also supported.
-2. Right-click and choose **Crop Common PDF Margins…**.
+2. Right-click and choose **Crop PDF Margins…**.
 3. Enter the margin to retain. The default is `10pt`.
 4. The result is added as a new attachment named `Original title — cropped`.
 
 Child attachments are added under the same parent item. Standalone PDFs are added to the same collections. Only one PDF is processed at a time.
 
-**Existing Zotero highlights and notes are not copied to the new PDF.** They remain associated with the original attachment. Visible annotations already embedded in the PDF file are included in content detection.
+### Independent settings
+
+Open **Tools → Crop Margins: Settings…**, or **Zotero Settings → Crop Margins**.
+
+| Preserve existing annotations | Remove the original PDF | Result |
+| --- | --- | --- |
+| Off (default) | Off (default) | New cropped PDF; original and its Zotero annotations stay in the library |
+| On | Off | Copy annotations to the new PDF; keep the original |
+| Off | On | New PDF without copied Zotero annotations; original and its annotations move to Trash |
+| On | On | Copy annotations, then move the original and its annotations to Trash |
+
+Preservation copies all six Zotero PDF annotation types: highlights, underlines, notes, text, images, and ink, including comments, tags, colors, page labels, and displayed authorship. The attachment note is copied too. Annotation bounds participate in crop detection, including marginal notes, ink stroke width, rotated text, and highlights spanning two pages. Original PDF coordinates and rotations remain unchanged, so copied positions stay aligned.
+
+The original is moved to **Zotero Trash**, never permanently erased by the plugin, and can be restored. External linked PDF files remain at their external location. Annotation copying and trashing the original share a database transaction. If copying, saving, or cropping fails, the original is retained. If source annotations or the source file change during processing, processing stops before replacing the original.
+
+**Crop the vertical arXiv identifier** defaults to **on** and can be turned off independently. It recognizes a vertical arXiv identifier in the left margin of the first page (both modern and legacy arXiv IDs), ignores it during margin measurement, and hides it with the CropBox. The underlying PDF text is not erased. A large requested left margin can be reduced to keep the identifier outside the visible page. Text, diagrams, embedded annotations, and preserved Zotero annotations take priority; if the identifier cannot be safely hidden, the area is retained with a warning. Scanned stamps without extractable text are not detected. The CLI equivalent for turning this behavior off is `--keep-arxiv-stamp`.
+
+Embedded PDF annotations are retained regardless of the preservation toggle. The toggle controls Zotero annotations stored separately from the PDF. Links already inserted into other notes still point to the original attachment; those notes are not rewritten. Image/ink annotation previews may be regenerated by Zotero when the new PDF is opened.
 
 ## How it works and limitations
 
-The engine computes the union of all page content bounding boxes and expands it by the requested margin. It then constrains this rectangle to the intersection of the original CropBoxes and applies the same rectangle to every page. If a PDF with mixed page sizes cannot be cropped this way without cutting content, processing stops with an error.
+The plugin computes the union of visible content and, when preservation is enabled, annotation bounds in displayed page coordinates. It expands this by the requested margin and constrains it to the common available page area. The same displayed crop is mapped back to each page’s original coordinate system. Output pages have uniform displayed dimensions; raw CropBoxes can differ when source rotations or offsets differ. If mixed page sizes cannot be cropped without cutting visible content, processing stops with an error.
+
+The standalone CLI retains its legacy rotation-normalizing mode by default. Use `--preserve-coordinates` for the plugin’s coordinate-preserving behavior, and optionally `--annotations-json positions.json` with an array of Zotero annotation position objects.
 
 - Measurement is a pixel-based approximation at 144 dpi by default. Only pure white is treated as background, and a one-pixel (0.5 pt) protective margin is added.
 - Colored backgrounds and scan noise may be detected as content. Detection of extremely small or faint content is not guaranteed.
@@ -70,18 +91,18 @@ The engine computes the union of all page content bounding boxes and expands it 
 
 ## Validation status
 
-- All 16 Python engine tests passed
-- All 12 bridge tests passed using mocked Zotero APIs and real Python processes
-- A 31-page PDF test confirmed uniform output dimensions, preserved extracted text, and an unchanged original file
-- All 31 output pages matched the corresponding original crop regions pixel for pixel at 144 dpi
-- Package 0.1.1 passed the installation preflight check in a running Zotero 9.0.6 instance
-- **Full integration testing of installation, menu actions, attachment import, restarts, and automatic updates in Zotero has not yet been completed.**
+- All 28 Python engine tests passed, including all four rotations, existing CropBox offsets, embedded highlight coordinates, marginal annotations, ink, and rotated text
+- All 23 plugin bridge tests passed, including every toggle combination and rollback/error handling
+- Package 0.2.0 installed and ran in Zotero 10.0.3; all four preservation/removal combinations and all six Zotero annotation types were checked
+- A real 15-page arXiv PDF test hid the first-page side identifier and preserved every page’s content streams, MediaBox, and rotation
+- Native Zotero integration results are documented in the [0.2.0 release notes](docs/releases/v0.2.0.md)
+- Automatic update delivery and a full application restart have not been tested end to end
 
-User PDFs and library data used during testing are not included in this repository.
+Automated tests use synthetic PDFs; the additional arXiv check used a public sample. User PDFs and library data are not included in this repository.
 
 ## Troubleshooting
 
-- **Installation rejected:** Check that you have the latest XPI and are running Zotero 9.0.x. Version 0.1.1 fixed the missing required update URL in 0.1.0.
+- **Installation rejected:** Check that you have the latest XPI and are running Zotero 9.0.x or 10.0.x.
 - **Python environment check failed:** Run your chosen Python executable with `-m pip install -r requirements.txt`, then enter its full path again.
 - **Menu missing:** Select exactly one PDF attachment, rather than its parent bibliographic item.
 - **File missing:** Open the original PDF in Zotero first to download it.
@@ -103,15 +124,15 @@ CROP_TEST_PAGES=3 node --test tests/test_plugin.cjs
 python build.py
 ```
 
-Tests use Node.js 22 or later. Node.js is not required to use the plugin. Running the JavaScript tests without the environment variables skips the four tests that launch real Python processes.
+Tests use Node.js 22 or later. Node.js is not required to use the plugin. Running the JavaScript tests without the environment variables skips the tests that launch real Python processes.
 
-`build.py` creates `dist/zoterocrop-VERSION.xpi` and an `updates.json` file containing its SHA-256 hash. To release a new version, bump the manifest version, build, and upload **that exact XPI** to the `vVERSION` GitHub Release. Commit the manifest and `updates.json` together. Do not distribute test documents, PDFs, or virtual environments.
+`build.py` creates `dist/crop-margins-VERSION.xpi` and an `updates.json` file containing its SHA-256 hash. To release a new version, bump the manifest version, build, and upload **that exact XPI** to the `vVERSION` GitHub Release. Commit the manifest and `updates.json` together. Do not distribute test documents, PDFs, or virtual environments.
 
 The update URL is `https://raw.githubusercontent.com/Yongwoo-Lee-ccl/zoterocrop/main/updates.json`. The plugin retains the ID `pdf-common-crop@local.invalid` for continuity with existing installations. This ID is not an email contact or a server address.
 
-Private development versions 0.1.0 and 0.1.1 do not have a working update URL, so their users must manually install the 0.1.2 XPI once. Subsequent versions use this repository's update information. Marking a GitHub release as a prerelease does not prevent Zotero updates: any version listed in `updates.json` becomes an update candidate for existing users.
+Private development versions 0.1.0 and 0.1.1 do not have a working update URL, so their users must manually install the latest XPI once. Subsequent versions use this repository's update information. Marking a GitHub release as a prerelease does not prevent Zotero updates: any version listed in `updates.json` becomes an update candidate for existing users.
 
-See [the 0.1.2 release notes](docs/releases/v0.1.2.md) for the current beta's scope and limitations.
+See [the 0.2.0 release notes](docs/releases/v0.2.0.md) for the current beta’s scope and limitations. The display name is now **Crop Margins**; the repository URL and internal plugin ID are unchanged so existing installations can update.
 
 ## Dependency licenses
 
